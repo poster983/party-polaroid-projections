@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Uploader</title>
+</head>
+<body>
+  <h1>Image Uploader</h1>
+
+  <div id="signup">
+    <label for="name">Name:</label>
+    <input type="text" id="name">
+    <button id="signupBtn">Sign up</button>
+  </div>
+
+  <div id="upload" style="display: none;">
+    <input type="file" id="image" accept="image/*">
+    <label for="caption">Caption:</label>
+    <input type="text" id="caption">
+    <button id="uploadBtn">Upload</button>
+  </div>
+
+ 
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const signupSection = document.getElementById('signup');
+    const uploadSection = document.getElementById('upload');
+    const signupBtn = document.getElementById('signupBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const nameInput = document.getElementById('name');
+    const imageInput = document.getElementById('image');
+    const captionInput = document.getElementById('caption');
+
+    const userUUID = localStorage.getItem('userUUID');
+
+    if (userUUID) {
+      signupSection.style.display = 'none';
+      uploadSection.style.display = 'block';
+    } else {
+      signupBtn.addEventListener('click', async () => {
+        const name = nameInput.value;
+        const response = await fetch('/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name }),
+        });
+
+        const data = await response.json();
+        localStorage.setItem('userUUID', data.uuid);
+
+        signupSection.style.display = 'none';
+        uploadSection.style.display = 'block';
+      });
+    }
+
+    uploadBtn.addEventListener('click', async () => {
+      const userUUID = localStorage.getItem('userUUID');
+      const caption = captionInput.value;
+      const formData = new FormData();
+      formData.append('image', imageInput.files[0]);
+      formData.append('caption', caption);
+
+      const response = await fetch('/upload', {
+        method: 'POST',
+        headers: { 'x-user-uuid': userUUID },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert('Image uploaded successfully. Save it to your camera roll.');
+        imageInput.value = '';
+        captionInput.value = '';
+      } else {
+        alert('Error uploading image. Please try again.');
+      }
+    });
+  </script>
+</body>
+</html>
+<!-- 
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Uploader</title>
+  <style>
+    #video {
+      width: 100%;
+      max-width: 400px;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Image Uploader</h1>
+
+  <div id="signup">
+    <label for="name">Name:</label>
+    <input type="text" id="name">
+    <button id="signupBtn">Sign up</button>
+  </div>
+
+  <div id="upload" style="display: none;">
+    <video id="video" autoplay></video>
+    <button id="captureBtn">Capture</button>
+    <canvas id="canvas" style="display: none;"></canvas>
+    <img id="capturedImage" style="display: none;">
+    <input type="file" id="image" accept="image/*">
+    <label for="caption">Caption:</label>
+    <input type="text" id="caption">
+    <button id="uploadBtn">Upload</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const signupSection = document.getElementById('signup');
+    const uploadSection = document.getElementById('upload');
+    const signupBtn = document.getElementById('signupBtn');
+    const captureBtn = document.getElementById('captureBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const nameInput = document.getElementById('name');
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const capturedImage = document.getElementById('capturedImage');
+    const captionInput = document.getElementById('caption');
+
+    const userUUID = localStorage.getItem('userUUID');
+
+    if (userUUID) {
+      signupSection.style.display = 'none';
+      uploadSection.style.display = 'block';
+      initCamera();
+    } else {
+      signupBtn.addEventListener('click', async () => {
+        const name = nameInput.value;
+        const response = await fetch('/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name }),
+        });
+
+        const data = await response.json();
+        localStorage.setItem('userUUID', data.uuid);
+
+        signupSection.style.display = 'none';
+        uploadSection.style.display = 'block';
+        initCamera();
+      });
+    }
+
+    async function initCamera() {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+      } catch (err) {
+        console.error('Error accessing camera:', err);
+      }
+    }
+
+    captureBtn.addEventListener('click', () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      capturedImage.src = canvas.toDataURL('image/jpeg');
+      capturedImage.style.display = 'block';
+    });
+
+    uploadBtn.addEventListener('click', async () => {
+      const userUUID = localStorage.getItem('userUUID');
+      const caption = captionInput.value;
+      const base64Image = capturedImage.src.split(',')[1];
+      const formData = new FormData();
+      formData.append('image', base64toBlob(base64Image, 'image/jpeg'), 'image.jpg');
+      formData.append('caption', caption);
+
+      const response = await fetch('/upload', {
+        method: 'POST',
+        headers: { 'x-user-uuid': userUUID },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert('Image uploaded successfully. Save it to your camera roll.');
+        capturedImage.style.display = 'none';
+        captionInput.value = '';
+      } else {
+        alert('Error uploading image. Please try again.');
+      }
+    });
+
+    function base64toBlob(base64, mimeType) {
+      const byteCharacters = atob(base64);
+      const byteArrays = [];
+
+      for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+        const slice = byteCharacters.slice(offset, offset + 512);
+        const byteNumbers = new Array(slice.length);
+
+        for (let i = 0; i < slice.length; i++) {
+          byteNumbers[i] = slice.charCodeAt(i);
+        }
+
+        const byteArray = new Uint8Array(byteNumbers);
+        byteArrays.push(byteArray);
+      }
+
+      return new Blob(byteArrays, { type: mimeType });
+    }
+  </script>
+</body>
+
+</html> -->
