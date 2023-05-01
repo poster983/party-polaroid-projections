@@ -1,22 +1,74 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Image Display</title>
+  <link rel="preconnect" href="https://fonts.bunny.net">
+  <link href="https://fonts.bunny.net/css?family=aldrich:400|cabin:400,400i,700|caveat-brush:400" rel="stylesheet" />
   <style>
-    body { margin: 0; overflow: hidden; }
-    #imageContainer { position: relative; width: 100%; height: 100vh; }
-    .image { position: absolute; top: 0; left: 0; width: 100%; height: 100vh; object-fit: cover; transition: opacity 1s; }
+    body {
+      margin: 0;
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #000;
+    }
+
+    .imageContainer {
+      position: relative;
+      width: calc(100vh/1.5);
+      height: 100vh;
+      background-color: white;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: opacity 5s, transform 5s;
+    }
+
+    .image {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      width: 100%;
+      height: auto;
+      object-fit: cover;
+    }
+
+    .caption {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      width: 360px;
+      font-family: 'Caveat Brush', handwriting;
+      font-size: 15ch;
+      background-color: #fff;
+      width: 100%;
+    }
+
+    .wrapper {
+      position: absolute;
+      top: 0px;
+      height: 100%;
+      width: calc(100% - 40px);
+      transition: opacity 5s, transform 5s;
+    }
   </style>
 </head>
+
 <body>
-  <div id="imageContainer"></div>
+  <div id="imageContainer" class="imageContainer"></div>
+  <div id="newImageContainer" class="imageContainer" style="position: absolute; transform: translateY(-100%);"></div>
 
   <script src="/socket.io/socket.io.js"></script>
+ 
+
+
   <script>
     const socket = io();
     const imageContainer = document.getElementById('imageContainer');
+    const newImageContainer = document.getElementById('newImageContainer');
     let images = [];
     let currentImageIndex = 0;
 
@@ -30,11 +82,7 @@
       if (images.length === 0) return;
 
       images.forEach((image, index) => {
-        const img = new Image();
-        img.src = '/images/file/'+image.uuid;
-        img.classList.add('image');
-        img.style.opacity = index === 0 ? 1 : 0;
-        imageContainer.appendChild(img);
+        createImageElement(image, index, imageContainer);
       });
 
       setInterval(() => {
@@ -42,20 +90,68 @@
         currentImageIndex = (currentImageIndex + 1) % images.length;
         const nextImage = imageContainer.children[currentImageIndex];
         prevImage.style.opacity = 0;
+        prevImage.style.transform = 'translateY(100%)';
         nextImage.style.opacity = 1;
-      }, 5000);
+        nextImage.style.transform = 'translateY(0)';
+      }, 10000);
+    }
+
+    function createImageElement(image, index, container) {
+      const img = new Image();
+      img.src = '/images/file/' + image.uuid;
+      img.classList.add('image');
+      const caption = document.createElement('div');
+      caption.classList.add('caption');
+      caption.textContent = image.caption;
+
+      const wrapper = document.createElement('div');
+      wrapper.classList.add('wrapper');
+      wrapper.style.opacity = 0;
+      wrapper.appendChild(img);
+      wrapper.appendChild(caption);
+
+      if (index === 0) {
+        wrapper.style.opacity = 1;
+        wrapper.style.transform = 'translateY(0)';
+      } else {
+        wrapper.style.transform = 'translateY(-100%)';
+      }
+
+      container.appendChild(wrapper);
+    }
+
+    function displayNewImage(image) {
+      // Add the new image to the images array
+      images.push(image);
+
+      // Clear the newImageContainer
+      while (newImageContainer.firstChild) {
+        newImageContainer.removeChild(newImageContainer.firstChild);
+      }
+
+      // Create the new image element in the newImageContainer
+      createImageElement(image, 0, newImageContainer);
+      createImageElement(image, images.length - 1, imageContainer);
+
+      newImageContainer.style.opacity = 1;
+      newImageContainer.style.transform = 'translateY(0)';
+
+      setTimeout(() => {
+        newImageContainer.style.opacity = 0;
+        newImageContainer.style.transform = 'translateY(100%)';
+        setTimeout(() => {
+          newImageContainer.style.transform = 'translateY(-100%)';
+        }, 5000);
+      }, 30000);
     }
 
     socket.on('newImage', (image) => {
-      images.push(image);
-      const img = new Image();
-      img.src = '/images/file/'+image.uuid;
-      img.classList.add('image');
-      img.style.opacity = 0;
-      imageContainer.appendChild(img);
+      displayNewImage(image);
     });
 
     fetchImages();
   </script>
+
 </body>
+
 </html>
