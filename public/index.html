@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -79,8 +79,8 @@
     });
   </script>
 </body>
-</html>
-<!-- 
+</html> -->
+
 <!DOCTYPE html>
 <html lang="en">
 
@@ -88,10 +88,331 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Image Uploader</title>
+  <link rel="preconnect" href="https://fonts.bunny.net">
+  <link href="https://fonts.bunny.net/css?family=aldrich:400|cabin:400,400i,700|caveat-brush:400" rel="stylesheet" />
+  <style>
+    body {
+      background-color: black;
+      color: white;
+      margin: 0px;
+    }
+
+    #video {
+    /* width: 100%; */
+    /* max-width: 400px; */
+    height: 100%;
+    /* aspect-ratio: 3.4/2.1; */
+    /* padding-bottom: 133.33%; */
+  }
+
+  .imageContainer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+      position: relative;
+      width: calc(100vh/1.5);
+      height: calc(100vh - (9vh + 30px));
+      background-color: white;
+      box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+      transition: opacity 5s, transform 5s;
+      color: black;
+      overflow: hidden;
+      /* margin: 10px; */
+    }
+    /* .caption {
+      position: absolute;
+      bottom: 20px;
+      left: 20px;
+      width: 360px;
+      font-family: 'Caveat Brush', handwriting;
+      font-size: 15ch;
+      background-color: #fff;
+      width: 100%;
+    } */
+
+    .caption {
+      position: relative;
+      height: 9vh;
+      padding-top: 10px;
+      padding-bottom: 10px;  
+    }
+    .caption input {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      font-family: 'Caveat Brush', handwriting;
+      font-size: 15ch;
+      background-color: #fff;
+      border: none;
+      outline: none;
+      /* padding: 0 10px; */
+    }
+
+
+    .polaroid {
+      position: relative;
+      overflow: hidden;
+      padding: 10px;
+      /* padding-bottom: 50px; */
+      background-color: white;
+      width: -moz-fit-content;
+      width: fit-content;
+    }
+
+
+    .viewfinder {
+      /* flex: 1 */
+      width: calc(100vh/1.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+    }
+    .viewfinder-overlay {
+      /* content: ""; */
+      width: min(20vw, 20vh);
+      height: auto;
+      aspect-ratio: 1/1;
+      border: 2px solid black;
+      border-radius: 50%;
+      position: absolute;
+      /* top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%); */
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .viewfinder-overlay .semi {
+      flex: 0.5;
+      background-color: rgba(0, 0, 0, 0.5);
+      -webkit-backdrop-filter: saturate(180%);
+      backdrop-filter: saturate(180%);
+      /* border-top-right-radius: 50%;
+      border-top-left-radius: 50%; */
+    }
+    .viewfinder-overlay hr {
+      margin: 0;
+      border: none;
+      border-top: 2px solid black;
+    }
+
+    #captureBtn {
+      position: absolute;
+      bottom: 5vw;
+      right: 5vw;
+
+      background-color: red;
+      width: 50px;
+      height: 50px;
+
+      border-radius: 50%;
+    }
+
+    #capturedImage {
+      height: 100%;
+    }
+
+    #upload {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+    }
+
+  </style>
+</head>
+
+<body>
+  <!-- <h1>Image Uploader</h1> -->
+  <code id="error"></code>
+  <div id="signup">
+    <label for="name">Name:</label>
+    <input type="text" id="name">
+    <button id="signupBtn">Sign up</button>
+  </div>
+
+  <div id="upload" style="display: none;">
+
+    <div id="viewfinder" class="viewfinder">
+      <video id="video" autoplay></video>
+      <div class="viewfinder-overlay">
+        <div class="semi"></div>
+        <hr>
+      </div>
+      <button id="captureBtn"></button>
+    </div>
+    
+    <div class="polaroid"> 
+      <div class="imageContainer">
+        <img id="capturedImage" style="display: none;">
+        
+      </div>
+      <div class="caption"><input type="text" id="caption"></div>
+    </div>
+    
+    
+    <canvas id="canvas" width="1920" height="1080" style="display: none;"></canvas>
+    
+    <input type="file" id="image" accept="image/*">
+    <label for="caption">Caption:</label>
+    <!-- <input type="text" id="caption"> -->
+    <button id="uploadBtn">Upload</button>
+  </div>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const signupSection = document.getElementById('signup');
+    const uploadSection = document.getElementById('upload');
+    const signupBtn = document.getElementById('signupBtn');
+    const captureBtn = document.getElementById('captureBtn');
+    const uploadBtn = document.getElementById('uploadBtn');
+    const nameInput = document.getElementById('name');
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const capturedImage = document.getElementById('capturedImage');
+    const captionInput = document.getElementById('caption');
+    const error = document.getElementById('error');
+    video.setAttribute('autoplay', '');
+    video.setAttribute('muted', '');
+    video.setAttribute('playsinline', '')
+    
+
+    const userUUID = localStorage.getItem('userUUID');
+
+    if (userUUID) {
+      signupSection.style.display = 'none';
+      uploadSection.style.display = 'block';
+      initCamera();
+    } else {
+      signupBtn.addEventListener('click', async () => {
+        const name = nameInput.value;
+        const response = await fetch('/signup', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: name }),
+        });
+
+        const data = await response.json();
+        localStorage.setItem('userUUID', data.uuid);
+
+        signupSection.style.display = 'none';
+        uploadSection.style.display = 'block';
+        initCamera();
+      });
+    }
+
+    async function initCamera() {
+      try {
+
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { 
+          width: { ideal: 3024 },
+          height: { ideal:  4032 }, facingMode: "environment" 
+        }, audio: false});
+        console.log(stream)
+        const tracks = stream.getVideoTracks()
+        console.log("Video Tracks", tracks)
+        if(tracks.length == 0 ){
+          error.innerText = "No Tracks Found"
+        }
+        video.onloadedmetadata = (e) => {
+                video.play();
+            };
+        video.srcObject = stream;//tracks[0];
+        
+      } catch (err) {
+        error.innerText = err
+        console.error('Error accessing camera:', err);
+      }
+    }
+
+    captureBtn.addEventListener('click', () => {
+      capture()
+    });
+
+    function capture() {
+      //free data url 
+      
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      canvas.getContext('2d').drawImage(video, 0, 0);
+      capturedImage.src = canvas.toDataURL('image/jpeg');
+      capturedImage.style.display = 'block';
+    }
+
+    uploadBtn.addEventListener('click', async () => {
+      const userUUID = localStorage.getItem('userUUID');
+      const caption = captionInput.value;
+      const base64Image = capturedImage.src.split(',')[1];
+      const formData = new FormData();
+      formData.append('image', base64toBlob(base64Image, 'image/jpeg'), 'image.jpg');
+      formData.append('caption', caption);
+
+      const response = await fetch('/upload', {
+        method: 'POST',
+        headers: { 'x-user-uuid': userUUID },
+        body: formData,
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        alert('Image uploaded successfully. Save it to your camera roll.');
+        capturedImage.style.display = 'none';
+        captionInput.value = '';
+      } else {
+        alert('Error uploading image. Please try again.');
+      }
+    });
+
+    function base64toBlob(base64, mimeType) {
+      const byteCharacters = atob(base64);
+      const byteArrays = [];
+
+      for (let offset = 0; offset < byteCharacters.length; offset += 512) {
+        const slice = byteCharacters.slice(offset, offset + 512);
+        const byteNumbers = new Array(slice.length);
+
+        for (let i = 0; i < slice.length; i++) {
+          byteNumbers[i] = slice.charCodeAt(i);
+        }
+
+        const byteArray = new Uint8Array(byteNumbers);
+        byteArrays.push(byteArray);
+      }
+
+      return new Blob(byteArrays, { type: mimeType });
+    }
+
+
+
+    viewfinder.addEventListener('click', () => {
+      capture()
+    });
+  </script>
+</body>
+
+</html>
+
+
+<!-- <!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Image Uploader</title>
   <style>
     #video {
       width: 100%;
       max-width: 400px;
+      height: 0;
+      padding-bottom: 133.33%;
     }
   </style>
 </head>
@@ -131,8 +452,13 @@
     const captionInput = document.getElementById('caption');
 
     const userUUID = localStorage.getItem('userUUID');
+    //check if user exists
+      
+    
 
     if (userUUID) {
+      
+
       signupSection.style.display = 'none';
       uploadSection.style.display = 'block';
       initCamera();
@@ -156,7 +482,7 @@
 
     async function initCamera() {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
         video.srcObject = stream;
       } catch (err) {
         console.error('Error accessing camera:', err);

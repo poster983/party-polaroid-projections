@@ -34,6 +34,14 @@ app.post('/signup', (req, res) => {
   });
 });
 
+app.get('/users/:id', (req, res) => {
+  usersDB.findOne({uuid: req.params.id}, (err, users) => {
+    if(err) return res.status(500).send(err);
+    if (!user) return res.status(404).send('User not found');
+    res.json(users);
+  });
+});
+
 app.post('/upload', upload.single('image'), (req, res) => {
   const userUUID = req.headers['x-user-uuid'];
   const caption = req.body.caption || '';
