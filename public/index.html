@@ -137,13 +137,13 @@
       bottom: 0;
       left: 0;
       width: 100%;
-      height: 100%;
+      /* height: 100%; */
       font-family: 'Caveat Brush', handwriting;
       font-size: 15ch;
       background-color: #fff;
       border: none;
       outline: none;
-      /* padding: 0 10px; */
+      padding: 0 10px;
     }
 
 
@@ -295,9 +295,9 @@
     <canvas id="canvas" width="1920" height="1080" style="display: none;"></canvas>
 
     <input type="file" id="image" accept="image/*">
-    <label for="caption">Caption:</label>
+    <!-- <label for="caption">Caption:</label> -->
     <!-- <input type="text" id="caption"> -->
-    <button id="uploadBtn">Upload</button>
+    <!-- <button id="uploadBtn">Upload</button> -->
   </div>
 
   <script src="/socket.io/socket.io.js"></script>
@@ -320,6 +320,9 @@
     video.setAttribute('muted', '');
     video.setAttribute('playsinline', '')
 
+    let currentScale = `scale(1)`;
+    let isPrinting = false;
+    // cons
 
     const userUUID = localStorage.getItem('userUUID');
 
@@ -379,13 +382,14 @@
       //free data url 
       //animate polaroid to translate 100%
       // polaroid.style.transform = 'translateY(100%)';
-
+      polaroidContainer.style.display = 'flex';
+      polaroid.style.transform = `${currentScale}`;
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       canvas.getContext('2d').drawImage(video, 0, 0);
       capturedImage.src = canvas.toDataURL('image/jpeg');
       capturedImage.style.display = 'block';
-
+      isPrinting = true;
       polaroidContainer.animate([
         { transform: 'translateY(100%)' },
         { transform: 'translateY(0%)' }
@@ -406,11 +410,13 @@
       });
       setTimeout(() => {
         animation.playbackRate = 11
+        isPrinting = false;
       }, 5000);
 
-    }
+      
 
-    uploadBtn.addEventListener('click', async () => {
+    }
+    async function submit()  {
       const userUUID = localStorage.getItem('userUUID');
       const caption = captionInput.value;
       const base64Image = capturedImage.src.split(',')[1];
@@ -432,7 +438,10 @@
       } else {
         alert('Error uploading image. Please try again.');
       }
-    });
+    }
+    // uploadBtn.addEventListener('click', async () => {
+
+    // });
 
     function base64toBlob(base64, mimeType) {
       const byteCharacters = atob(base64);
@@ -461,19 +470,19 @@
 
 
 
-
-    function updatePolaroidScale() {
+    
+  function updatePolaroidScale() {
       
     const windowHeight = window.innerHeight;
     const windowWidth = window.innerWidth;
     const aspectRatio = 1.5; // You can set this to the desired aspect ratio
 
-    const maxPolaroidWidth = windowHeight / aspectRatio;
-    const maxPolaroidHeight = windowWidth * aspectRatio;
+    const maxPolaroidWidth = (windowHeight / aspectRatio)+100;
+    const maxPolaroidHeight = (windowWidth * aspectRatio)+100;
 
     const scale = Math.min(windowWidth / maxPolaroidWidth, windowHeight / maxPolaroidHeight);
-
-    polaroid.style.transform = `scale(${scale})`;
+    currentScale = `scale(${scale})`
+    polaroid.style.transform = currentScale;
     }
 
 
@@ -495,33 +504,78 @@ function onTouchStart(event) {
   startY = event.touches[0].clientY;
   startTime = new Date().getTime();
   isSwiping = true;
+  console.log("touch start", event);
+
+  // Reset the transition property
+  polaroid.style.transition = '';
 }
 
 function onTouchMove(event) {
+  event.preventDefault();
   if (!isSwiping) return;
   deltaY = event.touches[0].clientY - startY;
+
+  // Update the polaroid's transform property as the user swipes
+  const translateY = `${currentScale} translateY(${deltaY}px)`;
+  polaroid.style.transform = translateY;
+
+  console.log("touch move", event);
 }
 
 function onTouchEnd() {
   if (!isSwiping) return;
+  
+  if (!isPrinting) return;
 
   const elapsedTime = new Date().getTime() - startTime;
   const velocity = deltaY / elapsedTime;
+  console.log("touch end", event);
 
-  if (-deltaY > threshold * polaroidContainer.offsetHeight) {
-    const translateY = `translateY(calc(-100% + ${deltaY}px))`;
+  //swipe up to submit
+  if (-deltaY > threshold * polaroid.offsetHeight) {
+    const translateY = `${currentScale} translateY(calc(-100% + ${deltaY}px))`;
     const transition = `transform ${Math.abs(deltaY) / Math.abs(velocity)}ms linear`;
 
-    polaroidContainer.style.transform = translateY;
-    polaroidContainer.style.transition = transition;
+    polaroid.style.transform = translateY;
+    polaroid.style.transition = transition;
+
+    polaroidContainer.style.display = 'none';
+    submit();
+    // console.log("touch end", event);
   }
+
+  //swipe down to close
+  else if (deltaY > threshold * polaroid.offsetHeight) {
+    const translateY = `${currentScale} translateY(calc(100% + ${deltaY}px))`;
+    const transition = `transform ${Math.abs(deltaY) / Math.abs(velocity)}ms linear`;
+
+    polaroid.style.transform = translateY;
+    polaroid.style.transition = transition;
+
+    polaroidContainer.style.display = 'none';
+
+    // console.log("touch end", event);
+  } else {
+    //swipe down to reset
+    const translateY = `${currentScale} translateY(0px)`;
+    const transition = `transform ${Math.abs(deltaY) / Math.abs(velocity)}ms linear`;
+    
+    polaroid.style.transform = translateY;
+    polaroid.style.transition = transition;
+    // console.log("touch end", event);
+  }
+
+  console.log("touch end", event);
 
   isSwiping = false;
 }
 
-polaroidContainer.addEventListener('touchstart', onTouchStart);
-polaroidContainer.addEventListener('touchmove', onTouchMove);
-polaroidContainer.addEventListener('touchend', onTouchEnd);
+polaroid.addEventListener('touchstart', onTouchStart);
+polaroid.addEventListener('touchmove', onTouchMove);
+
+polaroid.addEventListener('touchend', onTouchEnd);
+polaroid.addEventListener('touchcancel', onTouchEnd);
+polaroid.addEventListener('mouseup', onTouchEnd);
 
   </script>
 </body>
