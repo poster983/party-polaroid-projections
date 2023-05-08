@@ -300,9 +300,9 @@
     <!-- <button id="uploadBtn">Upload</button> -->
   </div>
 
-  <script src="/socket.io/socket.io.js"></script>
+  
   <script>
-    const socket = io();
+    // const socket = io();
     const signupSection = document.getElementById('signup');
     const uploadSection = document.getElementById('upload');
     const signupBtn = document.getElementById('signupBtn');
@@ -332,6 +332,27 @@
       initCamera();
     } else {
       signupBtn.addEventListener('click', async () => {
+        //request device motion 
+        if (typeof DeviceMotionEvent.requestPermission === 'function') {
+              // Ask the user for permission to access the device motion sensors
+              DeviceMotionEvent.requestPermission()
+                .then(permissionState => {
+                  if (permissionState === 'granted') {
+                    // Permission granted, add a device motion event listener
+                    window.addEventListener('devicemotion', handleDeviceMotion);
+                  } else {
+                    // Permission not granted, handle the error
+                    console.error('Device motion permission not granted.');
+                  }
+                })
+                .catch(error => {
+                  console.error(`Error requesting device motion permission: ${error}`);
+                });
+            } else {
+              console.error('Device motion not supported.');
+            }
+
+
         const name = nameInput.value;
         const response = await fetch('/signup', {
           method: 'POST',
@@ -377,7 +398,7 @@
     captureBtn.addEventListener('click', () => {
       capture()
     });
-
+    let developAnimation = null;
     function capture() {
       //free data url 
       //animate polaroid to translate 100%
@@ -399,7 +420,7 @@
         fill: 'forwards'
       });
 
-      const animation = capturedImage.animate([
+      developAnimation = capturedImage.animate([
         { filter: 'sepia(1) saturate(0.1) ', opacity: 0 },
         { filter: 'sepia(0) saturate(1)', opacity: 1 }
       ], {
@@ -409,7 +430,7 @@
         fill: 'forwards'
       });
       setTimeout(() => {
-        animation.playbackRate = 11
+        // animation.playbackRate = 11
         isPrinting = false;
       }, 5000);
 
@@ -491,7 +512,7 @@
 
 
 
-
+//MARK: Swiping
   let startY = 0;
 let deltaY = 0;
 let startTime = 0;
@@ -509,8 +530,14 @@ function onTouchStart(event) {
   // Reset the transition property
   polaroid.style.transition = '';
 }
-
+let timeoutObj = null;
 function onTouchMove(event) {
+  if(timeoutObj) clearTimeout(timeoutObj);
+  timeoutObj = setTimeout(() => {
+    console.log("touch move timeout")
+    onTouchEnd(event)
+
+  }, 200);
   event.preventDefault();
   if (!isSwiping) return;
   deltaY = event.touches[0].clientY - startY;
@@ -522,17 +549,18 @@ function onTouchMove(event) {
   console.log("touch move", event);
 }
 
-function onTouchEnd() {
+function onTouchEnd(e) {
+  console.log(isSwiping, isPrinting)
   if (!isSwiping) return;
   
-  if (!isPrinting) return;
+  // if () return;
 
   const elapsedTime = new Date().getTime() - startTime;
   const velocity = deltaY / elapsedTime;
   console.log("touch end", event);
 
   //swipe up to submit
-  if (-deltaY > threshold * polaroid.offsetHeight) {
+  if (-deltaY > threshold * polaroid.offsetHeight && !isPrinting) {
     const translateY = `${currentScale} translateY(calc(-100% + ${deltaY}px))`;
     const transition = `transform ${Math.abs(deltaY) / Math.abs(velocity)}ms linear`;
 
@@ -545,7 +573,7 @@ function onTouchEnd() {
   }
 
   //swipe down to close
-  else if (deltaY > threshold * polaroid.offsetHeight) {
+  else if (deltaY > threshold * polaroid.offsetHeight && !isPrinting) {
     const translateY = `${currentScale} translateY(calc(100% + ${deltaY}px))`;
     const transition = `transform ${Math.abs(deltaY) / Math.abs(velocity)}ms linear`;
 
@@ -576,6 +604,60 @@ polaroid.addEventListener('touchmove', onTouchMove);
 polaroid.addEventListener('touchend', onTouchEnd);
 polaroid.addEventListener('touchcancel', onTouchEnd);
 polaroid.addEventListener('mouseup', onTouchEnd);
+
+
+//MARK: Shaking
+
+const SHAKE_THRESHOLD = 20;
+
+// Define the x, y, and z coordinates of the previous acceleration reading
+let previousAcceleration = { x: null, y: null, z: null };
+
+// Define a function to calculate the magnitude of acceleration
+function calculateMagnitude(acceleration) {
+  return Math.sqrt(
+    Math.pow(acceleration.x, 2) +
+    Math.pow(acceleration.y, 2) +
+    Math.pow(acceleration.z, 2)
+  );
+}
+
+let shakeTimeout = null;
+// Define a function to handle device motion events
+function handleDeviceMotion(event) {
+  // Get the current acceleration reading
+  const currentAcceleration = event.accelerationIncludingGravity;
+
+  // If this is the first reading, store it and return
+  if (!previousAcceleration.x && !previousAcceleration.y && !previousAcceleration.z) {
+    previousAcceleration = currentAcceleration;
+    return;
+  }
+
+  // Calculate the magnitude of the difference between the current and previous acceleration readings
+  const deltaMagnitude = Math.abs(calculateMagnitude(currentAcceleration) - calculateMagnitude(previousAcceleration));
+
+  // If the delta magnitude is above the threshold, assume that the device is being shaken
+  if (deltaMagnitude > SHAKE_THRESHOLD) {
+    if (shakeTimeout) clearTimeout(shakeTimeout);
+    if(developAnimation) developAnimation.playbackRate = (developAnimation.playbackRate * 1.09) // slowly increase the playback rate
+    console.log("playback Rate", developAnimation.playbackRate)
+    shakeTimeout = setTimeout(() => {
+      console.log("Reset playback rate")
+      developAnimation.playbackRate = 1; // reset the playback rate after 0.5 seconds
+    }, 500);
+    console.log('Shake detected!');
+  }
+
+  // Store the current acceleration reading as the previous acceleration reading for the next iteration
+  previousAcceleration = currentAcceleration;
+}
+
+// Add a device motion event listener
+window.addEventListener('devicemotion', handleDeviceMotion);
+
+
+
 
   </script>
 </body>

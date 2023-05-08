@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Image Board</title>
+  <!-- <link rel="stylesheet" href="styles.css"> -->
+  <script src="/socket.io/socket.io.js"></script>
+  <style>
+    body, html {
+        margin: 0;
+        height: 100%;
+        overflow: hidden;
+        background-color: #000;
+      }
+      
+      #board {
+        position: relative;
+        width: 100%;
+        height: 100%;
+      }
+      
+.polaroid img {
+  width: 100%;
+  height: 100%;
+  object-position: center;
+}
+
+.polaroid {
+  position: absolute;
+  background-color: white;
+  padding: 10px 10px 40px;
+  box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+  transform-origin: top center;
+  width: 350px;
+  height: 400px;
+}
+
+      
+      .caption {
+        margin-top: 10px;
+        font-size: 14px;
+        font-family: Arial, sans-serif;
+      }
+      
+  </style>
+</head>
+<body>
+  <div id="board"></div>
+  <script>
+document.addEventListener('DOMContentLoaded', () => {
+  const board = document.getElementById('board');
+  const socket = io();
+
+  fetch('/images')
+    .then(res => res.json())
+    .then(images => {
+      images.forEach(image => addImage(board, image));
+    });
+
+  socket.on('newImage', (image) => {
+    addImage(board, image);
+  });
+
+});
+
+  // Replace the addImage function with the following:
+function addImage(board, image) {
+  const polaroid = document.createElement('div');
+  polaroid.className = 'polaroid';
+  polaroid.style.transform = `rotate(${(Math.random() - 0.5) * 15}deg)`;
+  polaroid.style.zIndex = image.time_stamp;
+  polaroid.style.left = `${Math.random() * (board.clientWidth - 350)}px`;
+  polaroid.style.top = `${Math.random() * (board.clientHeight - 400)}px`;
+
+  const imgContainer = document.createElement('div');
+  imgContainer.style.width = '100%';
+  imgContainer.style.height = '350px';
+  imgContainer.style.overflow = 'hidden';
+
+  const img = document.createElement('img');
+  img.src = '/images/file/' + image.uuid;
+  img.style.maxHeight = '100%';
+  img.style.maxWidth = '100%';
+  img.style.objectFit = 'cover';
+
+  const caption = document.createElement('div');
+  caption.className = 'caption';
+  caption.textContent = `${image.caption} \n ${image.name}`;
+
+
+  imgContainer.appendChild(img);
+  polaroid.appendChild(imgContainer);
+  polaroid.appendChild(caption);
+  board.appendChild(polaroid);
+}
+
+
+  </script>
+</body>
+</html>

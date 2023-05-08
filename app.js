@@ -114,6 +114,9 @@ app.get('/display', (req, res) => {
     res.sendFile(__dirname + '/public/image_display.html');
   });
 
+  app.get('/board', (req, res) => {
+    res.sendFile(__dirname + '/public/image_board.html');
+  });
 http.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });
